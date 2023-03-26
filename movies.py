@@ -52,10 +52,12 @@ def setup():
     movies_df['movieId'] = movies_df.index
     movies_df = movies_df[PODCAST_FIELDS]
     candidates = np.array(movies_df.embeddings.values.tolist(), dtype=np.float32)
-    return movies_df, candidates
+    df_watchlist = pd.read_csv("./data/letterboxd/watchlist.csv")
+    df_watched = pd.read_csv("./data/letterboxd/watched.csv")
+    return movies_df, candidates, df_watchlist, df_watched
 
 
-movies_df, candidates = setup()
+movies_df, candidates, df_watchlist, df_watched = setup()
 
 movies_available_languages = sorted(movies_df.language_name.unique().tolist())
 images_cache = {}
@@ -69,20 +71,32 @@ with search_expander:
         label=f"Desired languages | Number of Unique languages: {len(movies_available_languages)}",
         options=movies_available_languages,
     )
+    only_not_watched = st.checkbox('Only show non watched movies')
+    only_in_watchlist = st.checkbox('Only show movies from watchlist')
     output_fields: List[str] = [
         "movieId", "id", "imdb_id", "original_title", "title", "overview", "genres", "release_date", "language_code",
         "lang2idx", "language_name"
     ]
-
+filters = [selected_languages, only_not_watched, only_in_watchlist]
 retrieve_button = st.button("retrieve! 🧐")
 if query_text or retrieve_button:
+    sub_movies_df = movies_df.copy()
+    
     if selected_languages:
         selected_languages_str = "|".join(language for language in selected_languages)
-        sub_movies_df = movies_df[movies_df["language_name"].str.contains(selected_languages_str, regex=True)]
-        candidates = np.array(sub_movies_df.embeddings.values.tolist(), dtype=np.float32)
-    else:
-        sub_movies_df = movies_df
-
+        sub_movies_df = sub_movies_df[sub_movies_df["language_name"].str.contains(selected_languages_str, regex=True)]
+        
+    if only_in_watchlist:
+        watchlist_names = df_watchlist["Name"].tolist()
+        in_watchlist_filter = sub_movies_df["title"].isin(watchlist_names) | sub_movies_df["original_title"].isin(watchlist_names)
+        sub_movies_df = sub_movies_df[in_watchlist_filter]
+    if only_not_watched:
+        watched_names = df_watchlist["Name"].tolist()
+        watched_filter = sub_movies_df["title"].isin(watched_names) | sub_movies_df["original_title"].isin(watched_names)
+        sub_movies_df = sub_movies_df[watched_filter]
+    
+    candidates = np.array(sub_movies_df.embeddings.values.tolist(), dtype=np.float32)
+    
     print(f"Query: {query_text}")
     vectors_to_search = np.array(
         co.embed(model=model_name, texts=[query_text], truncate="RIGHT").embeddings,
