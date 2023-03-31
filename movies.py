@@ -60,7 +60,7 @@ def setup():
         "lang2idx", "language_name", "embeddings", "keywords_embedding", "vote_average"
     ]
     movies_df = pd.read_json("./data/movies_with_keywords_embeddings_31_03_2023.json", orient="index")
-    movies_df = movies_df.dropna(subset=['imdb_id'])
+    movies_df = movies_df.dropna(subset=['imdb_id', "keywords_embedding"])
     movies_df = movies_df.fillna("")
     movies_df['movieId'] = movies_df.index
     movies_df = movies_df[PODCAST_FIELDS]
@@ -90,6 +90,7 @@ with search_expander:
         "movieId", "id", "imdb_id", "original_title", "title", "overview", "genres", "release_date", "language_code",
         "lang2idx", "language_name"
     ]
+
 filters = [selected_languages, only_not_watched, only_in_watchlist]
 retrieve_button = st.button("retrieve! 🧐")
 if query_text or retrieve_button:
